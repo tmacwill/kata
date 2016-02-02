@@ -68,7 +68,7 @@ class Object(object):
         return self.__dict__
 
     @classmethod
-    def get(cls, data, fields=None, one=False, order_by=None, limit=None, offset=None):
+    def get(cls, data=None, fields=None, one=False, order_by=None, limit=None, offset=None):
         columns = '*'
         if fields is not None:
             columns = ','.join(fields)
@@ -83,12 +83,16 @@ class Object(object):
             order += ' offset %s ' % offset
 
         # construct where clause
-        where = ' and '.join([e[0] + ' = %s' for e in data.items()])
+        where = ' '
+        args = []
+        if data:
+            where += 'where ' + ' and '.join([e[0] + ' = %s' for e in data.items()])
+            args = [e[1] for e in data.items()]
 
         # execute query
         rows = query(
-            'select ' + columns + ' from ' + cls.__table__ + ' where ' + where + order,
-            [e[1] for e in data.items()]
+            'select ' + columns + ' from ' + cls.__table__ + where + order,
+            args
         )
 
         if rows is None:
@@ -131,7 +135,7 @@ class Object(object):
 
         return [cls(**row) for row in rows]
 
-class Container(object):
+class SimpleContainer(object):
     def __init__(self, *args, **kwargs):
         self._cache = self.cache()
         self.init(*args, **kwargs)
@@ -170,7 +174,7 @@ class Container(object):
         self.dirty()
         self.get()
 
-class MultiContainer(object):
+class AttributeContainer(object):
     def __init__(self, *args, **kwargs):
         self._cache = self.cache()
         self.init(*args, **kwargs)
@@ -182,8 +186,10 @@ class MultiContainer(object):
         return kata.cache.l1
 
     def dirty(self, keys):
-        if not isinstance(keys, list):
+        if not isinstance(keys, set) and not isinstance(keys, list):
             keys = [keys]
+        if not isinstance(keys, set):
+            keys = set(keys)
 
         for key in keys:
             self._cache.delete(self.key(key))
@@ -192,17 +198,23 @@ class MultiContainer(object):
         return 3600
 
     def get(self, items, one=None):
-        if not isinstance(items, list):
+        if not isinstance(items, set) and not isinstance(items, list):
             items = [items]
+        if not isinstance(items, set):
+            items = set(items)
 
         # perform a bulk get on all of the given keys
+        items = list(items)
         bulk_keys = [self.key(item) for item in items]
         cached_result = self._cache.get_multi(bulk_keys)
 
         # if a value returns None, that means the key was missing
         missed_items = [items[i] for i, value in enumerate(cached_result) if value is None]
         if len(missed_items) == 0:
-            return {item: result for item, result in zip(items, cached_result)}
+            result = {item: result for item, result in zip(items, cached_result)}
+            if one is True or (len(items) == 1 and one is None):
+                return list(result.values())[0]
+            return result
 
         # pull all of the missing items from ground truth
         result = self.pull(missed_items)
@@ -222,10 +234,10 @@ class MultiContainer(object):
         raise NotImplementedError()
 
     def pull(self, items):
-        model, column = self.source()
+        model, column = self.attribute()
         return {getattr(e, column): e for e in model.get_in(column, items)}
 
-    def source(self):
+    def attribute(self):
         raise NotImplementedError()
 
 @contextlib.contextmanager
