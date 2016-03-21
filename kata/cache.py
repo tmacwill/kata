@@ -14,6 +14,10 @@ class L0Cache(object):
     def delete(self, key):
         del self._data[key]
 
+    def delete_multi(self, keys):
+        for key in keys:
+            del self._data[key]
+
     def get(self, key):
         value, expire = self._data.get(key, (None, None))
         if expire and time.time() > expire:
@@ -45,6 +49,13 @@ class L1Cache(object):
 
     def delete(self, key):
         self.store.delete(self._key(key))
+
+    def delete_multi(self, keys):
+        pipe = self.store.pipeline()
+        for key in keys:
+            pipe.delete(self._key(key))
+
+        pipe.execute()
 
     def get(self, key):
         data = self.store.get(self._key(key))
