@@ -28,22 +28,12 @@ class Resource(object):
             response.data = data
 
     def _serialize(self, data):
-        def encode(obj):
-            if isinstance(obj, kata.db.Object):
-                return obj.fields()
-            elif isinstance(obj, datetime.datetime):
-                return obj.isoformat()
-            elif isinstance(obj, decimal.Decimal):
-                return float(obj)
-
-            return obj
-
         if self._format == 'json':
-            return json.dumps(data, default=encode).encode('utf-8')
-        elif self._format == 'html':
-            return data
+            return kata.db.serialize(data, 'json')
+        elif self._format == 'msgpack':
+            return kata.db.serialize(data, 'msgpack')
 
-        return msgpack.packb(data, default=encode)
+        return data
 
     def body(self, request):
         content_type = request.headers.get('CONTENT-TYPE', 'application/x-msgpack')

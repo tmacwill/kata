@@ -2,6 +2,7 @@ import contextlib
 import datetime
 import decimal
 import json
+import logging
 import msgpack
 import psycopg2
 import psycopg2.extras
@@ -33,7 +34,7 @@ class Object(object):
             setattr(self, k, v)
 
     @classmethod
-    def create(cls, data):
+    def create(cls, data, constraint=None, debug=False):
         one = False
         if not isinstance(data, list):
             data = [data]
@@ -47,10 +48,28 @@ class Object(object):
             '(%s)' % ','.join(['%s'] * len(data[0]))
         ] * len(data))
         returning = ' returning id'
-        row_ids = query(
-            'insert into "' + cls.__table__ + '"' + fields + values + returning,
-            [i[1] for j in data for i in sorted(j.items())]
-        )
+        args = [i[1] for j in data for i in sorted(j.items())]
+
+        # handle upsert constraints
+        constraint_string = ''
+        if constraint:
+            # if no columns are given, then update all columns
+            constraint_name = constraint
+            columns = data[0].keys()
+            if isinstance(constraint, tuple):
+                constraint_name, columns = constraint
+
+            constraint_string = ' on conflict on constraint %s do update set %s' % (
+                constraint_name,
+                ','.join(['%s = excluded.%s' % (column, column) for column in columns])
+            )
+
+        sql = 'insert into "' + cls.__table__ + '"' + fields + values + constraint_string + returning
+        if debug:
+            logging.debug(sql, args)
+            print(sql, args)
+
+        row_ids = query(sql, args)
 
         # add the last insert ID so the returned object has an ID
         if one:
@@ -248,6 +267,24 @@ def get_cursor():
         connection.commit()
     finally:
         _pool.putconn(connection)
+
+def serialize(data, format='json'):
+    def encode(obj):
+        if isinstance(obj, kata.db.Object):
+            return obj.fields()
+        elif isinstance(obj, datetime.datetime):
+            return obj.isoformat()
+        elif isinstance(obj, decimal.Decimal):
+            return float(obj)
+
+        return obj
+
+    if format == 'json':
+        return json.dumps(data, default=encode).encode('utf-8')
+    elif format == 'msgpack':
+        return msgpack.packb(data, default=encode)
+
+    return data
 
 def execute(sql, args=None):
     with get_cursor() as cursor:
