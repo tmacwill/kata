@@ -210,8 +210,7 @@ class AttributeContainer(object):
         if not isinstance(keys, set):
             keys = set(keys)
 
-        for key in keys:
-            self._cache.delete(self.key(key))
+        self._cache.delete_multi([self.key(key) for key in keys])
 
     def expire(self):
         return 3600
@@ -237,7 +236,7 @@ class AttributeContainer(object):
 
         # pull all of the missing items from ground truth
         result = self.pull(missed_items)
-        self._cache.set_multi({self.key(k): v for k, v in result.items()})
+        self._cache.set_multi({self.key(k): v for k, v in result.items()}, expire=self.expire())
 
         # merge together cached and uncached results
         for i, value in enumerate(cached_result):
@@ -272,7 +271,7 @@ def serialize(data, format='json'):
     def encode(obj):
         if isinstance(obj, kata.db.Object):
             return obj.fields()
-        elif isinstance(obj, datetime.datetime):
+        elif isinstance(obj, datetime.datetime) or isinstance(obj, datetime.date):
             return obj.isoformat()
         elif isinstance(obj, decimal.Decimal):
             return float(obj)
