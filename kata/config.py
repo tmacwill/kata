@@ -1,23 +1,7 @@
-import configparser
+import yaml
 import falcon
 
 _app = None
-
-class database:
-    __use__ = False
-    database = ''
-    host = 'localhost'
-    pool_size = 10
-    password = ''
-    port = 5432
-    user = ''
-
-class redis:
-    __use__ = False
-    db = 0
-    host = 'localhost'
-    port = 6379
-    prefix = ''
 
 def app():
     global _app
@@ -26,16 +10,14 @@ def app():
 
     return _app
 
-def initialize(config):
-    parser = configparser.ConfigParser()
-    parser.read(config)
+def initialize(config_file):
+    with open(config_file, 'r') as f:
+        data = yaml.load(f.read())
 
-    if 'database' in parser:
-        database.__use__ = True
-        for k, v in parser['database'].items():
-            setattr(database, k, v)
+        if 'database' in data:
+            import kata.db
+            kata.db.initialize(data['database'])
 
-    if 'redis' in parser:
-        redis.__use__ = True
-        for k, v in parser['redis'].items():
-            setattr(redis, k, v)
+        if 'cache' in data:
+            import kata.cache
+            kata.cache.initialize(data['cache'])

@@ -11,6 +11,7 @@ setuptools.setup(
         'msgpack-python',
         'natsort',
         'psycopg2',
+        'pyyaml',
         'redis'
     ]
 )

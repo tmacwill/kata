@@ -2,12 +2,26 @@ import pickle
 import redis
 import time
 
-import kata.config
+class _Cache:
+    def delete(self, key):
+        raise NotImplementedError()
 
-l0 = None
-l1 = None
+    def delete_multi(self, keys):
+        raise NotImplementedError()
 
-class L0Cache(object):
+    def get(self, key):
+        raise NotImplementedError()
+
+    def get_multi(self, keys):
+        raise NotImplementedError()
+
+    def set(self, key, value, expire=None):
+        raise NotImplementedError()
+
+    def set_multi(self, value_map, expire=None):
+        raise NotImplementedError()
+
+class MemoryCache(_Cache):
     def __init__(self):
         self._data = {}
 
@@ -36,16 +50,17 @@ class L0Cache(object):
         for k, v in value_map.items():
             self.set(k, v, expire)
 
-class L1Cache(object):
-    def __init__(self):
+class RedisCache(_Cache):
+    def __init__(self, db=0, host='localhost', port=6379, prefix=''):
+        self.prefix = prefix
         self.store = redis.StrictRedis(
-            db=kata.config.redis.db,
-            host=kata.config.redis.host,
-            port=kata.config.redis.port
+            db=db,
+            host=host,
+            port=port
         )
 
     def _key(self, key):
-        return kata.config.redis.prefix + str(key)
+        return self.prefix + str(key)
 
     def delete(self, key):
         self.store.delete(self._key(key))
@@ -89,9 +104,14 @@ class L1Cache(object):
 
         return pipe.execute()
 
-def initialize():
-    global l0
-    global l1
-
-    l0 = L0Cache()
-    l1 = L1Cache()
+def initialize(config):
+    for name, data in config.items():
+        if data['type'] == 'memory':
+            globals()[name] = MemoryCache()
+        elif data['type'] == 'redis':
+            globals()[name] = RedisCache(
+                db=data.get('db', 0),
+                host=data.get('host', 'localhost'),
+                port=data.get('port', 6379),
+                prefix=data.get('prefix', '')
+            )
