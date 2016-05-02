@@ -12,11 +12,11 @@ class L0Cache(object):
         self._data = {}
 
     def delete(self, key):
-        del self._data[key]
+        self._data.pop(key, None)
 
     def delete_multi(self, keys):
         for key in keys:
-            del self._data[key]
+            self._data.pop(key, None)
 
     def get(self, key):
         value, expire = self._data.get(key, (None, None))

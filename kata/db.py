@@ -66,8 +66,7 @@ class Object(object):
 
         sql = 'insert into "' + cls.__table__ + '"' + fields + values + constraint_string + returning
         if debug:
-            logging.debug(sql, args)
-            print(sql, args)
+            logging.debug((sql, args))
 
         row_ids = query(sql, args)
 
@@ -82,6 +81,10 @@ class Object(object):
                 row['id'] = row_id[0]
                 result.append(cls(**row))
             return result
+
+    @classmethod
+    def execute(cls, sql, args=None, placeholder='__table__'):
+        return execute(sql.replace(placeholder, cls.__table__), args)
 
     def fields(self):
         return self.__dict__
@@ -105,7 +108,7 @@ class Object(object):
         where = ' '
         args = []
         if data:
-            where += 'where ' + ' and '.join([e[0] + ' = %s' for e in data.items()])
+            where += 'where ' + ' and '.join([e + ' = %s' for e in data.keys()])
             args = [e[1] for e in data.items()]
 
         # execute query
@@ -153,6 +156,51 @@ class Object(object):
             return None
 
         return [cls(**row) for row in rows]
+
+    @classmethod
+    def query(cls, sql, args=None, placeholder='__table__'):
+        return query(sql.replace(placeholder, cls.__table__), args)
+
+    @classmethod
+    def truncate(cls, restart_identity=True):
+        sql = 'truncate ' + cls.__table__
+        if restart_identity:
+            sql += ' restart identity'
+
+        return execute(sql)
+
+    @classmethod
+    def update(cls, data, where_data, debug=False):
+        one = False
+        if not isinstance(data, list):
+            data = [data]
+            one = True
+
+        if len(data) == 0:
+            return
+
+        returning = ' returning id'
+        update = ','.join([e + ' = %s' for e in data[0].keys()])
+        where = ' where ' + ' and '.join([e + ' = %s' for e in where_data.keys()])
+        args = list(data[0].values()) + list(where_data.values())
+
+        sql = 'update "' + cls.__table__ + '"' + ' set ' + update + where + returning
+        if debug:
+            logging.debug((sql, args))
+
+        row_ids = query(sql, args)
+
+        # add the last insert ID so the returned object has an ID
+        if one:
+            data = data[0]
+            data['id'] = row_ids[0][0]
+            return cls(**data)
+        else:
+            result = []
+            for row, row_id in zip(data, row_ids):
+                row['id'] = row_id[0]
+                result.append(cls(**row))
+            return result
 
 class SimpleContainer(object):
     def __init__(self, *args, **kwargs):
