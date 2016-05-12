@@ -16,7 +16,7 @@ def initialize(config_file, bare=False):
 
         if 'database' in data or 'cache' in data:
             import kata.schema
-            kata.schema.initialize(data['database'], data['cache'])
+            kata.schema.initialize(data['database'])
 
         if bare:
             return

@@ -169,7 +169,7 @@ class Object(object):
         return execute(sql)
 
     @classmethod
-    def update(cls, data, where_data, debug=False):
+    def update(cls, data, where, debug=False):
         one = False
         if not isinstance(data, list):
             data = [data]
@@ -180,10 +180,10 @@ class Object(object):
 
         returning = ' returning id'
         update = ','.join([e + ' = %s' for e in data[0].keys()])
-        where = ' where ' + ' and '.join([e + ' = %s' for e in where_data.keys()])
-        args = list(data[0].values()) + list(where_data.values())
+        where_string = ' where ' + ' and '.join([e + ' = %s' for e in where.keys()])
+        args = list(data[0].values()) + list(where.values())
 
-        sql = 'update "' + cls.__table__ + '"' + ' set ' + update + where + returning
+        sql = 'update "' + cls.__table__ + '"' + ' set ' + update + where_string + returning
         if debug:
             logging.debug((sql, args))
 

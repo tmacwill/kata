@@ -1,6 +1,14 @@
 class Attribute(object):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, items, *args, **kwargs):
+        self._one = False
+        if not isinstance(items, set) and not isinstance(items, list):
+            items = [items]
+            self._one = True
+        if not isinstance(items, set):
+            items = set(items)
+
         self._cache = self.cache()
+        self._items = items
         self.init(*args, **kwargs)
 
     def init(self, *args, **kwargs):
@@ -9,27 +17,18 @@ class Attribute(object):
     def cache(self):
         raise NotImplementedError()
 
-    def dirty(self, keys):
-        if not isinstance(keys, set) and not isinstance(keys, list):
-            keys = [keys]
-        if not isinstance(keys, set):
-            keys = set(keys)
-
-        self._cache.delete_multi([self.key(key) for key in keys])
+    def dirty(self):
+        self._cache.delete_multi([self.key(item) for item in self._items])
 
     def expire(self):
         return 3600
 
-    def get(self, items, one=None):
-        if not isinstance(items, set) and not isinstance(items, list):
-            items = [items]
-            if one is None:
-                one = True
-        if not isinstance(items, set):
-            items = set(items)
+    def get(self, one=None):
+        if one is None and self._one:
+            one = True
 
         # perform a bulk get on all of the given keys
-        items = list(items)
+        items = list(self._items)
         bulk_keys = [self.key(item) for item in items]
         cached_result = self._cache.get_multi(bulk_keys)
         # if a value returns None, that means the key was missing

@@ -7,11 +7,16 @@ database:
   user: YOUR_DATABASE_USER
 
 cache:
-  l0:
+  memcached:
+    type: memcached
+    prefix: YOUR_KEY_PREFIX
+    hosts:
+      - 'localhost:11211'
+      - 'localhost:11212'
+  memory:
     type: memory
-  l1:
+  redis:
     type: redis
     db: 0
-    host: localhost
-    port: 6379
+    host: 'localhost:6379'
     prefix: YOUR_KEY_PREFIX

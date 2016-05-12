@@ -9,19 +9,24 @@ class Result(object):
         self.data = data
 
 class Resource(object):
-    def __init__(self, format='msgpack'):
+    def __init__(self, format='json'):
         self._format = format
 
     def _respond(self, response, result):
-        # use msgpack by default
-        response.content_type = 'application/x-msgpack'
-        if self._format == 'json':
-            response.content_type = 'application/json'
+        # use json by default
+        response.content_type = 'application/json'
+        if self._format == 'msgpack':
+            response.content_type = 'application/x-msgpack'
         elif self._format == 'html':
             response.content_type = 'text/html'
 
-        response.status = result.status_code
-        data = self._serialize(result.data)
+        data = ''
+        if result:
+            response.status = result.status_code
+            data = self._serialize(result.data)
+        else:
+            response.status = falcon.HTTP_200
+
         if isinstance(data, str):
             response.body = data
         else:
@@ -36,12 +41,12 @@ class Resource(object):
         return data
 
     def body(self, request):
-        content_type = request.headers.get('CONTENT-TYPE', 'application/x-msgpack')
+        content_type = request.headers.get('CONTENT-TYPE', 'application/json')
         data = request.stream.read().decode('utf-8')
-        if 'application/json' in content_type:
-            return json.loads(data)
+        if 'application/x-msgpack' in content_type or 'application/msgpack' in content_type:
+            return msgpack.unpackb(data)
 
-        return msgpack.unpackb(data)
+        return json.loads(data)
 
     def not_found(self, data=''):
         return Result(falcon.HTTP_404, data)
