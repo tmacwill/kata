@@ -31,22 +31,31 @@ class Attribute(object):
         items = list(self._items)
         bulk_keys = [self.key(item) for item in items]
         cached_result = self._cache.get_multi(bulk_keys)
-        # if a value returns None, that means the key was missing
-        missed_items = [items[i] for i, value in enumerate(cached_result) if value is None]
+
+        # determine which items are missing from the bulk cache get
+        missed_items = []
+        for i, item in enumerate(items):
+            if cached_result.get(bulk_keys[i], None) is None:
+                missed_items.append(item)
+
+        # if there are no missing items, then we're done
         if len(missed_items) == 0:
-            result = {item: result for item, result in zip(items, cached_result)}
+            result = {items[i]: cached_result[bulk_keys[i]] for i, _ in enumerate(items)}
             if one:
                 return list(result.values())[0]
             return result
 
         # pull all of the missing items from ground truth
-        result = self.pull(missed_items)
-        self._cache.set_multi({self.key(k): v for k, v in result.items()}, expire=self.expire())
+        pull_result = self.pull(missed_items)
+        self._cache.set_multi({self.key(k): v for k, v in pull_result.items()}, expire=self.expire())
 
         # merge together cached and uncached results
-        for i, value in enumerate(cached_result):
-            if value is not None:
-                result[items[i]] = value
+        result = {}
+        for i, item in enumerate(items):
+            if cached_result.get(bulk_keys[i], None) is not None:
+                result[item] = cached_result[bulk_keys[i]]
+            elif item in pull_result.keys():
+                result[item] = pull_result[item]
 
         if one:
             return list(result.values())[0]

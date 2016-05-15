@@ -41,6 +41,7 @@ class Memcached(_Cache):
         import pymemcache.client.hash
         self.store = pymemcache.client.hash.HashClient(
             host_tuples,
+            key_prefix=prefix.encode('utf-8'),
             deserializer=_memcache_deserialize,
             serializer=_memcache_serialize
         )
@@ -84,9 +85,10 @@ class Memory(_Cache):
         return value
 
     def get_multi(self, keys):
-        return [self.get(key) for key in keys]
+        return {key: self.get(key) for key in keys}
 
     def set(self, key, value, expire=None):
+        import time
         self._data[key] = (value, time.time() + expire) if expire else (value, None)
 
     def set_multi(self, value_map, expire=None):
@@ -130,7 +132,7 @@ class Redis(_Cache):
         for key in keys:
             pipe.get(self._key(key))
 
-        return [_deserialize(e) if e is not None else None for e in pipe.execute()]
+        return {k: _deserialize(v) if v is not None else None for k, v in zip(keys, pipe.execute())}
 
     def set(self, key, value, expire=None):
         k = self._key(key)
