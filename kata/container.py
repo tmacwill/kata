@@ -42,6 +42,8 @@ class Attribute(object):
         if len(missed_items) == 0:
             result = {items[i]: cached_result[bulk_keys[i]] for i, _ in enumerate(items)}
             if one:
+                if len(result.values()) == 0:
+                    return None
                 return list(result.values())[0]
             return result
 
@@ -58,9 +60,14 @@ class Attribute(object):
                 result[item] = pull_result[item]
 
         if one:
+            if len(result.values()) == 0:
+                return None
             return list(result.values())[0]
 
         return result
+
+    def get_one(self):
+        return self.get(one=True)
 
     def key(self, item):
         raise NotImplementedError()

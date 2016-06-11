@@ -146,7 +146,7 @@ class Object(object):
             order += ' offset %s ' % offset
 
         # construct where clause
-        where = column + ' in (' + ','.join(map(str, values)) + ')'
+        where = column + ' in (' + ','.join(["'%s'" % e if isinstance(e, str) else str(e) for e in values]) + ')'
 
         # execute query
         rows = query('select ' + columns + ' from ' + cls.__table__ + ' where ' + where + order)

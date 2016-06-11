@@ -48,19 +48,28 @@ class Resource(object):
 
         return json.loads(data)
 
+    def forbidden(self, data=''):
+        return Result(falcon.HTTP_403, data)
+
     def not_found(self, data=''):
         return Result(falcon.HTTP_404, data)
 
     def on_get(self, request, response, *args, **kwargs):
-        result = self.get(request, response, *args, **kwargs)
+        result = self.not_found()
+        if hasattr(self, 'get'):
+            result = self.get(request, response, *args, **kwargs)
+
         self._respond(response, result)
 
     def on_post(self, request, response, *args, **kwargs):
-        result = self.post(request, response, *args, **kwargs)
+        result = self.not_found()
+        if hasattr(self, 'post'):
+            result = self.post(request, response, *args, **kwargs)
+
         self._respond(response, result)
 
     def success(self, data=''):
         return Result(falcon.HTTP_200, data)
 
     def unauthorized(self, data=''):
-        return Result(falcon.HTTP_403, data)
+        return Result(falcon.HTTP_401, data)
