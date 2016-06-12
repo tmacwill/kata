@@ -20,3 +20,8 @@ cache:
     db: 0
     host: 'localhost:6379'
     prefix: YOUR_KEY_PREFIX
+
+stats:
+  host: localhost
+  port: 8125
+  prefix: YOUR_KEY_PREFIX

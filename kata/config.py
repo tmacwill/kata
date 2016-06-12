@@ -28,3 +28,7 @@ def initialize(config_file, bare=False):
         if 'database' in data:
             import kata.db
             kata.db.initialize(data['database'])
+
+        if 'stats' in data:
+            import kata.stats
+            kata.stats.initialize(data['stats'])

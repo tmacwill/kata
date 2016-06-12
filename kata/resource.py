@@ -2,6 +2,7 @@ import falcon
 import json
 import msgpack
 import kata.db
+import kata.stats
 
 class Result(object):
     def __init__(self, status_code, data):
@@ -9,6 +10,8 @@ class Result(object):
         self.data = data
 
 class Resource(object):
+    log = ''
+
     def __init__(self, format='json'):
         self._format = format
 
@@ -55,18 +58,28 @@ class Resource(object):
         return Result(falcon.HTTP_404, data)
 
     def on_get(self, request, response, *args, **kwargs):
+        log = 'get_' + self.__class__.log
+        if not log:
+            log = self.__class__.__name__.lower()
+
         result = self.not_found()
         if hasattr(self, 'get'):
-            result = self.get(request, response, *args, **kwargs)
+            with kata.stats.timer(log):
+                result = self.get(request, response, *args, **kwargs)
 
-        self._respond(response, result)
+            self._respond(response, result)
 
     def on_post(self, request, response, *args, **kwargs):
+        log = 'post_' + self.__class__.log
+        if not log:
+            log = self.__class__.__name__.lower()
+
         result = self.not_found()
         if hasattr(self, 'post'):
-            result = self.post(request, response, *args, **kwargs)
+            with kata.stats.timer(log):
+                result = self.post(request, response, *args, **kwargs)
 
-        self._respond(response, result)
+            self._respond(response, result)
 
     def success(self, data=''):
         return Result(falcon.HTTP_200, data)
