@@ -13,6 +13,7 @@ setuptools.setup(
         'psycopg2',
         'pymemcache',
         'pyyaml',
+        'raven',
         'redis',
         'statsd',
     ]

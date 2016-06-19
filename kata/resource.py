@@ -15,6 +15,18 @@ class Resource(object):
     def __init__(self, format='json'):
         self._format = format
 
+    def _handle(self, request_type, request, response, *args, **kwargs):
+        resource_log = self.__class__.log
+        if not resource_log:
+            resource_log = self.__class__.__name__.lower()
+
+        result = self.not_found()
+        if hasattr(self, request_type):
+            with kata.stats.timer(request_type + '.' + resource_log):
+                result = getattr(self, request_type)(request, response, *args, **kwargs)
+
+            self._respond(response, result)
+
     def _respond(self, response, result):
         # use json by default
         response.content_type = 'application/json'
@@ -58,28 +70,10 @@ class Resource(object):
         return Result(falcon.HTTP_404, data)
 
     def on_get(self, request, response, *args, **kwargs):
-        log = 'get_' + self.__class__.log
-        if not log:
-            log = self.__class__.__name__.lower()
-
-        result = self.not_found()
-        if hasattr(self, 'get'):
-            with kata.stats.timer(log):
-                result = self.get(request, response, *args, **kwargs)
-
-            self._respond(response, result)
+        self._handle('get', request, response, *args, **kwargs)
 
     def on_post(self, request, response, *args, **kwargs):
-        log = 'post_' + self.__class__.log
-        if not log:
-            log = self.__class__.__name__.lower()
-
-        result = self.not_found()
-        if hasattr(self, 'post'):
-            with kata.stats.timer(log):
-                result = self.post(request, response, *args, **kwargs)
-
-            self._respond(response, result)
+        self._handle('post', request, response, *args, **kwargs)
 
     def success(self, data=''):
         return Result(falcon.HTTP_200, data)

@@ -1,5 +1,6 @@
-import yaml
 import falcon
+import yaml
+import kata.errors
 
 _app = None
 
@@ -7,6 +8,7 @@ def app():
     global _app
     if _app is None:
         _app = falcon.API()
+        _app.add_error_handler(Exception, kata.errors.handler)
 
     return _app
 
@@ -29,6 +31,10 @@ def initialize(config_file, bare=False):
             import kata.db
             kata.db.initialize(data['database'])
 
-        if 'stats' in data:
+        if 'statsd' in data:
             import kata.stats
-            kata.stats.initialize(data['stats'])
+            kata.stats.initialize(data['statsd'])
+
+        if 'errors' in data:
+            import kata.errors
+            kata.errors.initialize(data['errors'])
