@@ -22,8 +22,19 @@ class Resource(object):
 
         result = self.not_found()
         if hasattr(self, request_type):
-            with kata.stats.timer(request_type + '.' + resource_log):
-                result = getattr(self, request_type)(request, response, *args, **kwargs)
+            resource_timer = kata.stats.start_timer('speed.' + request_type + '.resource.' + resource_log)
+            overall_timer = kata.stats.start_timer('speed.' + request_type + '.all')
+            result = getattr(self, request_type)(request, response, *args, **kwargs)
+
+            # log resource timing
+            kata.stats.stop_timer(resource_timer)
+            kata.stats.stop_timer(overall_timer)
+
+            # log http response code
+            if result and hasattr(result, 'status_code') and len(result.status_code.split(' ')) > 0:
+                status = result.status_code.split(' ')[0]
+                kata.stats.increment('response.' + request_type + '.resource.' + resource_log + '.' + status)
+                kata.stats.increment('response.' + request_type + '.all.' + status)
 
             self._respond(response, result)
 
