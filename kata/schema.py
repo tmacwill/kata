@@ -36,14 +36,18 @@ def drop_entire_database_and_lose_all_data():
     os.system('dropdb -U %s %s' % (_database['user'], _database['name']))
 
 def export_data(tables=None):
-    tables_arg = ' '.join(['-t %s' % e for e in tables])
+    tables_arg = ''
+    if tables:
+        tables_arg = ' '.join(['-t %s' % e for e in tables])
     os.system('pg_dump -U %s %s -a %s' % (_database['user'], tables_arg, _database['name']))
 
 def export_schema():
     os.system('pg_dump -U %s -s %s' % (_database['user'], _database['name']))
 
 def export_tables(tables=None):
-    tables_arg = ' '.join(['-t %s' % e for e in tables])
+    tables_arg = ''
+    if tables:
+        tables_arg = ' '.join(['-t %s' % e for e in tables])
     os.system('pg_dump -U %s %s %s' % (_database['user'], tables_arg, _database['name']))
 
 def reset(schema):

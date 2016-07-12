@@ -1,7 +1,13 @@
+import falcon.errors
 import raven
 import subprocess
 
 _sentry_client = None
+_ignored_exceptions = [
+    falcon.errors.HTTPUnauthorized,
+    falcon.errors.HTTPForbidden,
+    falcon.errors.HTTPNotFound,
+]
 
 def initialize(config):
     global _sentry_client
@@ -17,7 +23,14 @@ def initialize(config):
 
 def handler(exception, request, response, parameters):
     if _sentry_client:
-        _sentry_client.captureException()
+        capture = True
+        for ignored in _ignored_exceptions:
+            if isinstance(exception, ignored):
+                capture = False
+                break
+
+        if capture:
+            _sentry_client.captureException()
 
     raise exception
 

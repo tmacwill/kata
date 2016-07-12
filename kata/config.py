@@ -15,6 +15,8 @@ def app():
 def initialize(config_file, bare=False):
     with open(config_file, 'r') as f:
         data = yaml.load(f.read())
+        if not data:
+            return
 
         if 'database' in data or 'cache' in data:
             import kata.schema

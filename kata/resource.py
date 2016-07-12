@@ -10,10 +10,14 @@ class Result(object):
         self.data = data
 
 class Resource(object):
+    format = 'json'
     log = ''
+    __type__ = 'resource'
 
-    def __init__(self, format='json'):
-        self._format = format
+    def __init__(self, format=None):
+        self._format = self.__class__.format
+        if format:
+            self._format = format
 
     def _handle(self, request_type, request, response, *args, **kwargs):
         resource_log = self.__class__.log
@@ -22,8 +26,12 @@ class Resource(object):
 
         result = self.not_found()
         if hasattr(self, request_type):
-            resource_timer = kata.stats.start_timer('speed.' + request_type + '.resource.' + resource_log)
-            overall_timer = kata.stats.start_timer('speed.' + request_type + '.all')
+            resource_timer = kata.stats.start_timer(
+                'speed.%s.%s.%s' % (self.__class__.__type__, request_type, resource_log)
+            )
+            overall_timer = kata.stats.start_timer(
+                'speed.%s.%s.all' % (self.__class__.__type__, request_type)
+            )
             result = getattr(self, request_type)(request, response, *args, **kwargs)
 
             # log resource timing
@@ -33,8 +41,12 @@ class Resource(object):
             # log http response code
             if result and hasattr(result, 'status_code') and len(result.status_code.split(' ')) > 0:
                 status = result.status_code.split(' ')[0]
-                kata.stats.increment('response.' + request_type + '.resource.' + resource_log + '.' + status)
-                kata.stats.increment('response.' + request_type + '.all.' + status)
+                kata.stats.increment(
+                    'response.%s.%s.%s.%s' % (self.__class__.__type__, request_type, resource_log, status)
+                )
+                kata.stats.increment(
+                    'response.%s.%s.all.%s' % (self.__class__.__type__, request_type, status)
+                )
 
             self._respond(response, result)
 
@@ -66,14 +78,6 @@ class Resource(object):
 
         return data
 
-    def body(self, request):
-        content_type = request.headers.get('CONTENT-TYPE', 'application/json')
-        data = request.stream.read().decode('utf-8')
-        if 'application/x-msgpack' in content_type or 'application/msgpack' in content_type:
-            return msgpack.unpackb(data)
-
-        return json.loads(data)
-
     def forbidden(self, data=''):
         return Result(falcon.HTTP_403, data)
 
@@ -85,6 +89,14 @@ class Resource(object):
 
     def on_post(self, request, response, *args, **kwargs):
         self._handle('post', request, response, *args, **kwargs)
+
+    def request_body(self, request):
+        content_type = request.headers.get('CONTENT-TYPE', 'application/json')
+        data = request.stream.read().decode('utf-8')
+        if 'application/x-msgpack' in content_type or 'application/msgpack' in content_type:
+            return msgpack.unpackb(data)
+
+        return json.loads(data)
 
     def success(self, data=''):
         return Result(falcon.HTTP_200, data)
