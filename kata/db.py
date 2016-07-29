@@ -25,6 +25,8 @@ def initialize(config):
         user=config.get('user', '')
     )
 
+    execute('create extension if not exists "uuid-ossp"')
+
 class Object(object):
     __table__ = ''
 
