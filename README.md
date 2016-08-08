@@ -119,26 +119,28 @@ Chances are, your app uses a database. You can specify your database configurati
       port: 5432
       user: YOUR_DATABASE_USER
 
-To manage your schema, it's recommended to create a top-level directory called `schema` to house your migrations. Migrations should be written as plain SQL files. So that migrations can be applied in the right order, filenames should start with a number. For example, you might choose `1-foo.sql` and `2-bar.sql`, or you might prefix migrations with the current timestamp.
+To manage the database schema, you can specify tables in YAML files. It's recommended to create a top-level directory called `schema`, then to create a separate YAML file for each of your tables. Here's an example for a table called `foo`:
 
-You can apply all migrations in the `schema` directory after the `n`th index with `kata.schema.apply(schema, n)`. If you want to wipe out your database and recreate it from scratch, then you can use `kata.schema.reset(schema)`. Here's an example of a script that resets your database:
+    foo:
+        columns:
+            id:
+                type: 'bigserial'
+                nullable: false
+                primary_key: true
+            bar:
+                type: 'integer'
+                nullable: false
+            baz:
+                type: 'character varying'
+                length: 255
+        indexes:
+            qux:
+                columns: ['bar', 'baz']
+                unique: true
 
-    #!/usr/bin/env python
+You can use `kata.schema.apply` to generate SQL statements to migrate the current state of the database to the format specified in your schema files. By default, kata will simply print SQL statements without running anything, but if you pass `execute=True` as a kwarg, then kata will run the statements as well. You can also use `kata.schema.reset` to blow away your existing database and re-create the schema from scratch.
 
-    import os
-    import sys
-
-    app = os.path.dirname(os.path.realpath(__file__)) + '/..'
-    sys.path.append(app)
-
-    import kata.config
-    import kata.schema
-
-    config_path = os.environ.get('CONFIG', app + '/config/dev.yaml')
-    kata.config.initialize(config_path, bare=True)
-    kata.schema.reset('%s/schema' % app)
-
-kata comes with a lightweight ORM. Each table should have a corresponding `kata.db.Object` class. We recommend putting them in a directory called `model`, but you can do whatever you want. The class for a table called `foo` would look like this:
+kata also comes with a lightweight ORM. Each table should have a corresponding `kata.db.Object` class. We recommend putting them in a directory called `model`, but you can do whatever you want. The class for a table called `foo` would look like this:
 
     class Foo(kata.db.Object):
         __table__ = 'foo'

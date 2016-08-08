@@ -14,6 +14,8 @@ _pool = None
 
 def initialize(config):
     global _pool
+    if _pool:
+        return
 
     _pool = psycopg2.pool.ThreadedConnectionPool(
         database=config.get('name', ''),
@@ -35,7 +37,7 @@ class Object(object):
             setattr(self, k, v)
 
     @classmethod
-    def create(cls, data, constraint=None, debug=False):
+    def create(cls, data, unique=None, debug=False):
         one = False
         if not isinstance(data, list):
             data = [data]
@@ -51,21 +53,22 @@ class Object(object):
         returning = ' returning id'
         args = [i[1] for j in data for i in sorted(j.items())]
 
-        # handle upsert constraints
-        constraint_string = ''
-        if constraint:
+        # handle unique indexes
+        unique_string = ''
+        if unique:
             # if no columns are given, then update all columns
-            constraint_name = constraint
-            columns = data[0].keys()
-            if isinstance(constraint, tuple):
-                constraint_name, columns = constraint
+            unique_columns = unique
+            update_columns = data[0].keys()
+            if isinstance(unique, dict):
+                unique_columns = unique['columns']
+                update_columns = unique.get('update', [])
 
-            constraint_string = ' on conflict on constraint %s do update set %s' % (
-                constraint_name,
-                ','.join(['%s = excluded.%s' % (column, column) for column in columns])
+            unique_string = ' on conflict (%s) do update set %s' % (
+                ','.join(unique_columns),
+                ', '.join(['%s = excluded.%s' % (column, column) for column in update_columns])
             )
 
-        sql = 'insert into "' + cls.__table__ + '"' + fields + values + constraint_string + returning
+        sql = 'insert into "' + cls.__table__ + '"' + fields + values + unique_string + returning
         if debug:
             logging.debug((sql, args))
 
@@ -159,6 +162,10 @@ class Object(object):
         return [cls(**row) for row in rows]
 
     @classmethod
+    def get_one(cls, data=None, fields=None, order_by=None, limit=None, offset=None):
+        return cls.get(one=True, data=data, fields=fields, order_by=order_by, limit=limit, offset=offset)
+
+    @classmethod
     def query(cls, sql, args=None, placeholder='__table__'):
         return query(sql.replace(placeholder, cls.__table__), args)
 
@@ -212,7 +219,7 @@ def get_cursor():
     finally:
         _pool.putconn(connection)
 
-def serialize(data, format='json'):
+def serialize(data, format='json', pretty=False):
     def encode(obj):
         if isinstance(obj, kata.db.Object):
             return obj.fields()
@@ -224,6 +231,8 @@ def serialize(data, format='json'):
         return obj
 
     if format == 'json':
+        if pretty:
+            return json.dumps(data, default=encode, indent=4).encode('utf-8')
         return json.dumps(data, default=encode).encode('utf-8')
     elif format == 'msgpack':
         return msgpack.packb(data, default=encode)
