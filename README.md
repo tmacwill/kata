@@ -122,21 +122,21 @@ Chances are, your app uses a database. You can specify your database configurati
 To manage the database schema, you can specify tables in YAML files. It's recommended to create a top-level directory called `schema`, then to create a separate YAML file for each of your tables. Here's an example for a table called `foo`:
 
     foo:
-        columns:
-            id:
-                type: 'bigserial'
-                nullable: false
-                primary_key: true
-            bar:
-                type: 'integer'
-                nullable: false
-            baz:
-                type: 'character varying'
-                length: 255
-        indexes:
-            qux:
-                columns: ['bar', 'baz']
-                unique: true
+      columns:
+        id:
+          type: 'bigserial'
+          nullable: false
+          primary_key: true
+        bar:
+          type: 'integer'
+          nullable: false
+        baz:
+          type: 'character varying'
+          length: 255
+      indexes:
+        qux:
+          columns: ['bar', 'baz']
+          unique: true
 
 You can use `kata.schema.apply` to generate SQL statements to migrate the current state of the database to the format specified in your schema files. By default, kata will simply print SQL statements without running anything, but if you pass `execute=True` as a kwarg, then kata will run the statements as well. You can also use `kata.schema.reset` to blow away your existing database and re-create the schema from scratch.
 
@@ -201,6 +201,9 @@ Containers are an abstraction for caching data. A container handles caching some
         def cache(self):
             return kata.cache.memcached
 
+        def dependencies(self):
+            return (Bar, self.foo)
+
         def expire(self):
             return 3600
 
@@ -210,7 +213,7 @@ Containers are an abstraction for caching data. A container handles caching some
         def pull(self):
             return some_expensive_thing(self.foo)
 
-Here, `pull` will only be executed if the value isn't in the cache, and then the value will be stored in the cache. `key` specifies a unique key for the container, so it must be unique across everything you're caching, or containers will conflict with each other. `expire` specifies how long the value will remain in the cache, in seconds. `init` can be used as a constructor; don't use `__init__`, since that does stuff.
+Here, `pull` will only be executed if the value isn't in the cache, and then the value will be stored in the cache. `key` specifies a unique key for the container, so it must be unique across everything you're caching, or containers will conflict with each other. The `expire` method specifies how long the value will remain in the cache, in seconds. `init` should used as a constructor, so always override `init` instead of `__init__`. With the `dependencies` method, you can specify which containers should be dirtied when the container is dirtied. In this example, every time `Foo` is dirtied, `Bar` will also be dirtied as well.
 
 To use the `Simple` cache, just do this:
 

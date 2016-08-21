@@ -37,7 +37,7 @@ class Object(object):
             setattr(self, k, v)
 
     @classmethod
-    def create(cls, data, unique=None, debug=False):
+    def create(cls, data, unique=None):
         one = False
         if not isinstance(data, list):
             data = [data]
@@ -58,6 +58,9 @@ class Object(object):
         if unique:
             # if no columns are given, then update all columns
             unique_columns = unique
+            if not isinstance(unique_columns, tuple) and not isinstance(unique_columns, list):
+                unique_columns = [unique_columns]
+
             update_columns = data[0].keys()
             if isinstance(unique, dict):
                 unique_columns = unique['columns']
@@ -69,9 +72,6 @@ class Object(object):
             )
 
         sql = 'insert into "' + cls.__table__ + '"' + fields + values + unique_string + returning
-        if debug:
-            logging.debug((sql, args))
-
         row_ids = query(sql, args)
 
         # add the last insert ID so the returned object has an ID
@@ -178,7 +178,7 @@ class Object(object):
         return execute(sql)
 
     @classmethod
-    def update(cls, data, where, debug=False):
+    def update(cls, data, where):
         one = False
         if not isinstance(data, list):
             data = [data]
@@ -193,9 +193,6 @@ class Object(object):
         args = list(data[0].values()) + list(where.values())
 
         sql = 'update "' + cls.__table__ + '"' + ' set ' + update + where_string + returning
-        if debug:
-            logging.debug((sql, args))
-
         row_ids = query(sql, args)
 
         # add the last insert ID so the returned object has an ID
@@ -241,9 +238,11 @@ def serialize(data, format='json', pretty=False):
 
 def execute(sql, args=None):
     with get_cursor() as cursor:
+        logging.debug('Running SQL: ' + str((sql, args)))
         cursor.execute(sql, args)
 
 def query(sql, args=None):
     with get_cursor() as cursor:
+        logging.debug('Running SQL: ' + str((sql, args)))
         cursor.execute(sql, args)
         return cursor.fetchall()

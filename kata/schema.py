@@ -1,3 +1,4 @@
+import logging
 import os
 import natsort
 import subprocess
@@ -83,6 +84,9 @@ def apply(schema_directory, execute=False):
     if not _database:
         return
 
+    # disable redundant logging
+    logging.getLogger().setLevel(logging.INFO)
+
     import kata.db
     kata.db.initialize(_database)
 
@@ -110,15 +114,31 @@ def apply(schema_directory, execute=False):
 
                 existing_columns = set()
                 metadata_columns = set()
-                for metadata_column in metadata['columns'].keys():
+                metadata_data = []
+                for metadata_column, metadata_values in metadata['columns'].items():
                     metadata_columns.add(metadata_column)
+                    metadata_data.append((metadata_column, metadata_values))
+
+                # for convenience when using the psql CLI, add the ID column first
+                for i, (metadata_column, metadata_values) in enumerate(metadata_data):
+                    if metadata_column == 'id':
+                        metadata_data.pop(i)
+                        metadata_data.insert(0, (metadata_column, metadata_values))
+                        break
+
+                # for convenience when using the psql CLI, add the dt column second
+                for i, (metadata_column, metadata_values) in enumerate(metadata_data):
+                    if metadata_column.endswith('dt'):
+                        metadata_data.pop(i)
+                        metadata_data.insert(1, (metadata_column, metadata_values))
+                        break
 
                 # make sure column types match
                 for existing_column in schema:
                     column_name, data_type, length, default, nullable = existing_column
                     existing_columns.add(column_name)
 
-                    for metadata_column, metadata_values in metadata['columns'].items():
+                    for metadata_column, metadata_values in metadata_data:
                         if metadata_column == column_name:
                             if data_type != metadata_values.get('type') or \
                                     length != metadata_values.get('length') or \
@@ -140,20 +160,21 @@ def apply(schema_directory, execute=False):
                 for unused_column in unused_columns:
                     _handle('ALTER TABLE %s DROP COLUMN %s ;' % (table, unused_column), execute)
 
-                # add columns that are missing
+                # add columns that are missing, preserving the order determined earlier
                 missing_columns = metadata_columns - existing_columns
-                for missing_column in missing_columns:
-                    column_metadata = metadata['columns'][missing_column]
-                    _handle(_alter_table_string(
-                        table,
-                        missing_column,
-                        column_metadata.get('type'),
-                        column_metadata.get('length'),
-                        column_metadata.get('default'),
-                        column_metadata.get('nullable'),
-                        column_metadata.get('primary_key'),
-                        create=True
-                    ), execute)
+                for missing_column, _ in metadata_data:
+                    if missing_column in missing_columns:
+                        column_metadata = metadata['columns'][missing_column]
+                        _handle(_alter_table_string(
+                            table,
+                            missing_column,
+                            column_metadata.get('type'),
+                            column_metadata.get('length'),
+                            column_metadata.get('default'),
+                            column_metadata.get('nullable'),
+                            column_metadata.get('primary_key'),
+                            create=True
+                        ), execute)
 
                 # get indexes that currently exist for table
                 sql = '''

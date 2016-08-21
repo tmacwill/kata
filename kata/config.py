@@ -1,4 +1,5 @@
 import falcon
+import logging
 import yaml
 import kata.errors
 
@@ -17,6 +18,9 @@ def initialize(config_file, bare=False):
         data = yaml.load(f.read())
         if not data:
             return
+
+        if data.get('debug', False):
+            logging.getLogger().setLevel(logging.DEBUG)
 
         if 'database' in data or 'cache' in data:
             import kata.schema
