@@ -136,4 +136,4 @@ class Attribute(Simple):
 
     def pull(self, items):
         model, column = self.attribute()
-        return {getattr(e, column): e for e in model.get_in(column, items)}
+        return {getattr(e, column): e for e in model.get(where_in=(column, items))}

@@ -37,7 +37,7 @@ class Object(object):
             setattr(self, k, v)
 
     @classmethod
-    def create(cls, data, unique=None):
+    def create(cls, data, unique=None, debug=False):
         one = False
         if not isinstance(data, list):
             data = [data]
@@ -72,7 +72,7 @@ class Object(object):
             )
 
         sql = 'insert into "' + cls.__table__ + '"' + fields + values + unique_string + returning
-        row_ids = query(sql, args)
+        row_ids = query(sql, args, debug)
 
         # add the last insert ID so the returned object has an ID
         if one:
@@ -87,14 +87,38 @@ class Object(object):
             return result
 
     @classmethod
-    def execute(cls, sql, args=None, placeholder='__table__'):
-        return execute(sql.replace(placeholder, cls.__table__), args)
+    def delete(cls, where=None, where_in=None, debug=False):
+        # construct where clause
+        where_string = ' where '
+        args = []
+
+        if where:
+            where_string += ' and '.join([e + ' = %s' for e in where.keys()])
+            args = [e[1] for e in where.items()]
+
+        if where_in:
+            if not isinstance(where_in, list):
+                where_in = [where_in]
+
+            if where and len(where) == 1:
+                where_string += ' and '
+
+            for where_in_row in where_in:
+                column, values = where_in_row
+                where_string += column + ' in (' + ','.join(["'%s'" % e if isinstance(e, str) else str(e) for e in values]) + ')'
+
+        sql = 'delete from "' + cls.__table__ + '"' + where_string
+        execute(sql, args, debug)
+
+    @classmethod
+    def execute(cls, sql, args=None, placeholder='__table__', debug=False):
+        return execute(sql.replace(placeholder, cls.__table__), args, debug)
 
     def fields(self):
         return self.__dict__
 
     @classmethod
-    def get(cls, data=None, fields=None, one=False, order_by=None, limit=None, offset=None):
+    def get(cls, where=None, where_in=None, fields=None, one=False, order_by=None, limit=None, offset=None, debug=False):
         columns = '*'
         if fields is not None:
             columns = ','.join(fields)
@@ -109,17 +133,31 @@ class Object(object):
             order += ' offset %s ' % offset
 
         # construct where clause
-        where = ' '
+        where_string = ''
         args = []
-        if data:
-            where += 'where ' + ' and '.join([e + ' = %s' for e in data.keys()])
-            args = [e[1] for e in data.items()]
+
+        if where or where_in:
+            where_string += ' where '
+
+        if where:
+            where_string += ' and '.join([e + ' = %s' for e in where.keys()])
+            args = [e[1] for e in where.items()]
+
+        if where_in:
+            if not isinstance(where_in, list):
+                where_in = [where_in]
+
+            if where and len(where) == 1:
+                where_string += ' and '
+
+            where_string += ' and '.join([
+                column + ' in (' + ','.join(["'%s'" % e if isinstance(e, str) else str(e) for e in values]) + ')'
+                for (column, values) in where_in
+            ])
 
         # execute query
-        rows = query(
-            'select ' + columns + ' from ' + cls.__table__ + where + order,
-            args
-        )
+        sql = 'select ' + columns + ' from ' + cls.__table__ + where_string + order
+        rows = query(sql, args, debug)
 
         if rows is None:
             return None
@@ -133,41 +171,21 @@ class Object(object):
         return [cls(**row) for row in rows]
 
     @classmethod
-    def get_in(cls, column, values, fields=None, order_by=None, limit=None, offset=None):
-        columns = '*'
-        if fields is not None:
-            columns = ','.join(fields)
-
-        if len(values) == 0:
-            return []
-
-        # construct order by clause
-        order = ' '
-        if order_by is not None:
-            order += 'order by %s' % order_by
-        if limit is not None:
-            order += ' limit %s ' % limit
-        if offset is not None:
-            order += ' offset %s ' % offset
-
-        # construct where clause
-        where = column + ' in (' + ','.join(["'%s'" % e if isinstance(e, str) else str(e) for e in values]) + ')'
-
-        # execute query
-        rows = query('select ' + columns + ' from ' + cls.__table__ + ' where ' + where + order)
-
-        if rows is None:
-            return None
-
-        return [cls(**row) for row in rows]
+    def get_one(cls, where=None, where_in=None, fields=None, order_by=None, limit=None, offset=None, debug=False):
+        return cls.get(
+            one=True,
+            where=where,
+            where_in=where_in,
+            fields=fields,
+            order_by=order_by,
+            limit=limit,
+            offset=offset,
+            debug=debug
+        )
 
     @classmethod
-    def get_one(cls, data=None, fields=None, order_by=None, limit=None, offset=None):
-        return cls.get(one=True, data=data, fields=fields, order_by=order_by, limit=limit, offset=offset)
-
-    @classmethod
-    def query(cls, sql, args=None, placeholder='__table__'):
-        return query(sql.replace(placeholder, cls.__table__), args)
+    def query(cls, sql, args=None, placeholder='__table__', debug=False):
+        return query(sql.replace(placeholder, cls.__table__), args, debug)
 
     @classmethod
     def truncate(cls, restart_identity=True):
@@ -178,7 +196,7 @@ class Object(object):
         return execute(sql)
 
     @classmethod
-    def update(cls, data, where):
+    def update(cls, data, where=None, debug=False):
         one = False
         if not isinstance(data, list):
             data = [data]
@@ -187,13 +205,20 @@ class Object(object):
         if len(data) == 0:
             return
 
+        if not where:
+            where = {}
+
+        where_string = ''
+        if where:
+            where_string += ' where '
+
         returning = ' returning id'
         update = ','.join([e + ' = %s' for e in data[0].keys()])
-        where_string = ' where ' + ' and '.join([e + ' = %s' for e in where.keys()])
+        where_string += ' and '.join([e + ' = %s' for e in where.keys()])
         args = list(data[0].values()) + list(where.values())
 
         sql = 'update "' + cls.__table__ + '"' + ' set ' + update + where_string + returning
-        row_ids = query(sql, args)
+        row_ids = query(sql, args, debug)
 
         # add the last insert ID so the returned object has an ID
         if one:
@@ -236,13 +261,17 @@ def serialize(data, format='json', pretty=False):
 
     return data
 
-def execute(sql, args=None):
+def execute(sql, args=None, debug=False):
     with get_cursor() as cursor:
         logging.debug('Running SQL: ' + str((sql, args)))
+        if debug:
+            print('Running SQL: ' + str((sql, args)))
         cursor.execute(sql, args)
 
-def query(sql, args=None):
+def query(sql, args=None, debug=False):
     with get_cursor() as cursor:
         logging.debug('Running SQL: ' + str((sql, args)))
+        if debug:
+            print('Running SQL: ' + str((sql, args)))
         cursor.execute(sql, args)
         return cursor.fetchall()

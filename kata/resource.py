@@ -90,6 +90,9 @@ class Resource(object):
     def on_post(self, request, response, *args, **kwargs):
         self._handle('post', request, response, *args, **kwargs)
 
+    def ok(self, data=''):
+        return Result(falcon.HTTP_200, data)
+
     def request_body(self, request):
         content_type = request.headers.get('CONTENT-TYPE', 'application/json')
         data = request.stream.read().decode('utf-8')
@@ -99,7 +102,7 @@ class Resource(object):
         return json.loads(data)
 
     def success(self, data=''):
-        return Result(falcon.HTTP_200, data)
+        return self.ok(data=data)
 
     def unauthorized(self, data=''):
         return Result(falcon.HTTP_401, data)

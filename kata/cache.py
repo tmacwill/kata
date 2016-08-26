@@ -2,12 +2,6 @@ def _deserialize(data):
     import pickle
     return pickle.loads(data)
 
-def _memcache_deserialize(key, value, flags):
-    return _deserialize(value)
-
-def _memcache_serialize(key, value):
-    return _serialize(value), 0
-
 def _serialize(data):
     import pickle
     return pickle.dumps(data)
@@ -33,39 +27,36 @@ class _Cache:
 
 class Memcached(_Cache):
     def __init__(self, hosts, prefix):
-        host_tuples = []
-        for host in hosts:
-            host_parts = host.split(':')
-            host_tuples.append((host_parts[0], int(host_parts[1])))
+        import pylibmc
+        self.prefix = prefix
+        self.store = pylibmc.Client(hosts, binary=True)
 
-        import pymemcache.client.hash
-        self.store = pymemcache.client.hash.HashClient(
-            host_tuples,
-            key_prefix=prefix.encode('utf-8'),
-            deserializer=_memcache_deserialize,
-            serializer=_memcache_serialize
-        )
+    def _key(self, key):
+        return self.prefix + str(key)
 
     def delete(self, key):
-        self.store.delete(key)
+        self.store.delete(self._key(key))
 
     def delete_multi(self, keys):
-        self.store.delete_multi(keys)
+        self.store.delete_multi(keys, key_prefix=self.prefix)
 
     def get(self, key):
-        return self.store.get(key)
+        return self.store.get(self._key(key))
 
     def get_multi(self, keys):
-        return self.store.get_multi(keys)
+        return self.store.get_multi(keys, key_prefix=self.prefix)
 
     def set(self, key, value, expire=0):
-        self.store.set(key, value, expire=expire)
+        self.store.set(self._key(key), value, time=expire)
 
     def set_multi(self, value_map, expire=0):
-        self.store.set_multi(value_map, expire=expire)
+        self.store.set_multi(value_map, time=expire, key_prefix=self.prefix)
 
 class Memory(_Cache):
     def __init__(self):
+        self._data = {}
+
+    def clear(self):
         self._data = {}
 
     def delete(self, key):

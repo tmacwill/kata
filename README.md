@@ -2,7 +2,7 @@
 
 ## Creating a Project
 
-kata requires Python 3. If you want Python 2 support, sorry.
+Kata requires Python 3. If you want Python 2 support, sorry.
 
 We're going to create a project called myproject. First, create a directory where the project will live:
 
@@ -15,7 +15,7 @@ You probably want to create a virtualenv. To do so:
     virtualenv -p python3 venv
     source venv/bin/activate
 
-Now, create a configuration file to connect to the database, cache, etc. kata supports PosgreSQL for a relational database, and Redis/memcached for caching. There's an example in kata/kata/config.yaml.example. You probably want different config file, so I'd recommend creating a `config` directory inside of `myproject` and putting your config files in there. You might also want a `bin` directory for various scripts your app might need, or a `static` directory for static files.
+Now, let's create a configuration file to that will specify how to connect to the database, cache, etc. Kata supports PosgreSQL for a relational database, and Redis/memcached for caching. There's an example in kata/config.yaml.example. You might want to create several different configuration files (e.g., one for dev, one for staging, and one for production) so I'd recommend creating a `config` directory inside of `myproject` and putting your config files in there. You might also want a `bin` directory for various scripts your app might need, or a `static` directory for static files.
 
 Next, create a new directory where all the application source will live. Inside of `myproject`, create another directory called `myproject`, so your Python source can live as a standalone package:
 
@@ -31,7 +31,7 @@ Now, let's create the root `__init__.py` file. In `myproject/myproject/__init__.
     kata.initialize(config)
     app = kata.config.app()
 
-Here, we're initializing our kata application, using the config file we just created. This `__init__.py` also lets us specify the path to a config file via an environment variable. It also exposes a module-level `app` variable, which you'll need to run WSGI servers like gunicorn.
+Here, we're initializing our kata application, using the config file we just created. This `__init__.py` also lets us specify the path to a config file via an environment variable, and defaults to a file called `config/dev.yaml`. It also exposes a module-level `app` variable, which you'll need to run WSGI servers like gunicorn.
 
 ## Resources
 
@@ -70,7 +70,7 @@ In order for these routes to be registered when your app starts, change `myproje
 
     import myproject.routes
 
-You can split up these routes into as many different files and directories as you want, just be sure to import them all in your `__init__.py` file, or they won't be registered.
+You can split up these routes into as many different files and directories as you want, just be sure to import them all in your `__init__.py` file (or via modules imported by that file), or they won't be registered.
 
 Now, when `/foo/bar/123` is accessed, the `Bar` resource you created above will call either its `get` or `post` method, depending on the type of request, passing along the value `123` to the `baz` parameter. For POST requests, you can call `self.body(request)` from within the `post` method to get a dictionary of data passed as POST data. The `Content-Type` request header will be used to decode data passed as JSON or msgpack appropriately.
 
@@ -140,7 +140,7 @@ To manage the database schema, you can specify tables in YAML files. It's recomm
 
 You can use `kata.schema.apply` to generate SQL statements to migrate the current state of the database to the format specified in your schema files. By default, kata will simply print SQL statements without running anything, but if you pass `execute=True` as a kwarg, then kata will run the statements as well. You can also use `kata.schema.reset` to blow away your existing database and re-create the schema from scratch.
 
-kata also comes with a lightweight ORM. Each table should have a corresponding `kata.db.Object` class. We recommend putting them in a directory called `model`, but you can do whatever you want. The class for a table called `foo` would look like this:
+Kata also comes with a lightweight ORM. Each table should have a corresponding `kata.db.Object` class. We recommend putting them in a directory called `model`, but you can do whatever you want. The class for a table called `foo` would look like this:
 
     class Foo(kata.db.Object):
         __table__ = 'foo'
@@ -149,7 +149,7 @@ Suppose the `foo` table has columns calld `bar` (a `varchar`) and `qux` (an `int
 
     Foo.create([{'bar': 'baz', 'qux': 3}, {'bar': 'corge', 'qux': 5}])
     Foo.get({'bar': 'baz'}, order_by='qux', limit=5)
-    Foo.get_in('bar', ['qux', 'quux'])
+    Foo.get(where_in=('bar', ['qux', 'quux']))
     Foo.update({'bar': 'baz'}, where={'qux': 3})
 
 Getter functions return instances of the `Foo` class. Values for the `bar` and `qux` columns can be accessed via properties on those objects. You can serialize data returned from getters with:
@@ -159,7 +159,7 @@ Getter functions return instances of the `Foo` class. Values for the `bar` and `
 
 ## Cache
 
-kata also has support for caching data via three different mechanisms: memory, redis, and memcached. Cache instances are specified in the configuration YAML file, like this:
+Kata also has support for caching data via three different mechanisms: memory, redis, and memcached. Cache instances are specified in the configuration YAML file, like this:
 
     cache:
       memcached:
@@ -245,7 +245,7 @@ And again, to remove values:
 
 If some of those values are in the cache and some aren't, then only the values with misses will be queried.
 
-If you need to do something more complex then a simple `get_in` query, then you can just override the `pull` method, like we did before. Since `pull` will be called on a list of items this time, `items` will be given as a parameter to the method. This time, `pull` must return a dictionary indexed by each item. Here's an example:
+If you need to do something more complex then a simple `where in` query, then you can just override the `pull` method, like we did before. Since `pull` will be called on a list of items this time, `items` will be given as a parameter to the method. This time, `pull` must return a dictionary indexed by each item. Here's an example:
 
     class Bar(kata.container.Attribute):
         def cache(self):

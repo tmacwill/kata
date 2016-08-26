@@ -4,6 +4,7 @@ import yaml
 import kata.errors
 
 _app = None
+data = None
 
 def app():
     global _app
@@ -14,6 +15,8 @@ def app():
     return _app
 
 def initialize(config_file, bare=False):
+    global data
+
     with open(config_file, 'r') as f:
         data = yaml.load(f.read())
         if not data:
@@ -21,13 +24,6 @@ def initialize(config_file, bare=False):
 
         if data.get('debug', False):
             logging.getLogger().setLevel(logging.DEBUG)
-
-        if 'database' in data or 'cache' in data:
-            import kata.schema
-            kata.schema.initialize(data['database'])
-
-        if bare:
-            return
 
         if 'cache' in data:
             import kata.cache

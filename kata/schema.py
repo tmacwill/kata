@@ -4,9 +4,7 @@ import natsort
 import subprocess
 import re
 import yaml
-
-_cache = None
-_database = None
+import kata.config
 
 def _alter_table_string(table, column_name, data_type, length, default, nullable, primary_key=False, create=False):
     data_type_string = '%s' % data_type
@@ -18,8 +16,8 @@ def _alter_table_string(table, column_name, data_type, length, default, nullable
         default_string += 'DEFAULT %s' % default
 
     nullable_string = ''
-    if nullable == 'NO':
-        nullable += 'NOT NULL'
+    if nullable == 'NO' or nullable is False:
+        nullable_string += 'NOT NULL'
 
     primary_key_string = ''
     if primary_key:
@@ -50,7 +48,11 @@ def _dump(flags='', tables=None, exclude_tables=None, path=None):
     flags += ' '
     flags += ' '.join(['-t %s' % e for e in tables])
     flags += ' '.join(['-T %s' % e for e in exclude_tables])
-    command = 'pg_dump -U %s %s %s' % (_database['user'], flags, _database['name'])
+    command = 'pg_dump -U %s %s %s' % (
+        kata.config.data['database']['user'],
+        flags,
+        kata.config.data['database']['name']
+    )
 
     if path:
         command += ' > %s' % path
@@ -67,28 +69,19 @@ def _index_string(table, index, columns, unique):
     sql += 'INDEX %s ON %s USING btree (%s)' % (index, table, ', '.join(columns))
     return sql
 
-def initialize(database):
-    global _database
-    _database = database
-
-def apply(schema_directory, execute=False):
+def apply(schema_directory, execute=False, quiet=False):
     def _handle(statement, execute):
         if not statement:
             return
 
-        print(statement)
+        if not quiet:
+            print(statement)
+
         if execute:
             kata.db.execute(statement)
 
-    global _database
-    if not _database:
-        return
-
     # disable redundant logging
     logging.getLogger().setLevel(logging.INFO)
-
-    import kata.db
-    kata.db.initialize(_database)
 
     for file in os.listdir(schema_directory):
         with open(schema_directory + '/' + file, 'r') as f:
@@ -220,18 +213,18 @@ def apply(schema_directory, execute=False):
                 missing_indexes = metadata_indexes - existing_indexes
                 for missing_index in missing_indexes:
                     index_metadata = metadata['indexes'][missing_index]
-                    _handle(_index_string(
+                    _handle('%s ;' % _index_string(
                         table,
                         missing_index,
                         index_metadata.get('columns', []),
                         index_metadata.get('unique')
                     ), execute)
 
-def create_database():
-    os.system('createdb -U %s %s' % (_database['user'], _database['name']))
+def create_database(user, name):
+    os.system('createdb -U %s %s' % (user, name))
 
-def drop_entire_database_and_lose_all_data():
-    os.system('dropdb -U %s %s' % (_database['user'], _database['name']))
+def drop_entire_database_and_lose_all_data(user, name):
+    os.system('dropdb -U %s %s' % (user, name))
 
 def export_data(tables=None, exclude_tables=None, path=None):
     return _dump('--column-inserts --data-only', tables, exclude_tables, path)
@@ -242,11 +235,15 @@ def export_schema(path=None):
 def export_tables(tables=None, exclude_tables=None, path=None):
     return _dump('', tables, exclude_tables, path)
 
-def reset(schema, execute=False):
-    global _database
-    if not _database:
-        return
+def reset(config_file, schema_directory, execute=False, quiet=False):
+    with open(config_file, 'r') as f:
+        data = yaml.load(f.read())
+        if not data:
+            return
 
-    drop_entire_database_and_lose_all_data()
-    create_database()
-    apply(schema, execute)
+        config = data['database']
+        drop_entire_database_and_lose_all_data(config['user'], config['name'])
+        create_database(config['user'], config['name'])
+
+    kata.config.initialize(config_file)
+    apply(schema_directory, execute, quiet)
