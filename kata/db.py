@@ -147,7 +147,7 @@ class Object(object):
             if not isinstance(where_in, list):
                 where_in = [where_in]
 
-            if where and len(where) == 1:
+            if where and len(where) >= 1:
                 where_string += ' and '
 
             where_string += ' and '.join([
@@ -245,7 +245,9 @@ def serialize(data, format='json', pretty=False):
     def encode(obj):
         if isinstance(obj, kata.db.Object):
             return obj.fields()
-        elif isinstance(obj, datetime.datetime) or isinstance(obj, datetime.date):
+        elif isinstance(obj, datetime.datetime):
+            return obj.timestamp()
+        elif isinstance(obj, datetime.date):
             return obj.isoformat()
         elif isinstance(obj, decimal.Decimal):
             return float(obj)
