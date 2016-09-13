@@ -246,7 +246,7 @@ def serialize(data, format='json', pretty=False):
         if isinstance(obj, kata.db.Object):
             return obj.fields()
         elif isinstance(obj, datetime.datetime):
-            return obj.timestamp()
+            return int(obj.timestamp())
         elif isinstance(obj, datetime.date):
             return obj.isoformat()
         elif isinstance(obj, decimal.Decimal):
