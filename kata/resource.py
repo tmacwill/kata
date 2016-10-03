@@ -5,9 +5,10 @@ import kata.db
 import kata.stats
 
 class Result(object):
-    def __init__(self, status_code, data):
+    def __init__(self, status_code, data, headers=None):
         self.status_code = status_code
         self.data = data
+        self.headers = headers or []
 
 class Resource(object):
     format = 'json'
@@ -70,6 +71,10 @@ class Resource(object):
         else:
             response.data = data
 
+        if result:
+            for header in result.headers:
+                response.set_header(header[0], header[1])
+
     def _serialize(self, data):
         if self._format == 'json':
             return kata.db.serialize(data, 'json')
@@ -92,6 +97,9 @@ class Resource(object):
 
     def ok(self, data=''):
         return Result(falcon.HTTP_200, data)
+
+    def redirect(self, url):
+        return Result(falcon.HTTP_301, '', [('Location', url)])
 
     def request_body(self, request):
         content_type = request.headers.get('CONTENT-TYPE', 'application/json')
