@@ -83,6 +83,9 @@ class Resource(object):
 
         return data
 
+    def bad_request(self, data=''):
+        return Result(falcon.HTTP_400, data)
+
     def forbidden(self, data=''):
         return Result(falcon.HTTP_403, data)
 
