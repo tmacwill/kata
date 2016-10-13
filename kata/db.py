@@ -251,6 +251,8 @@ def serialize(data, format='json', pretty=False):
             return obj.isoformat()
         elif isinstance(obj, decimal.Decimal):
             return float(obj)
+        elif hasattr(obj, 'json_encode'):
+            return obj.json_encode()
 
         return obj
 
