@@ -22,6 +22,19 @@ def initialize(config_file, bare=False):
         if not data:
             return
 
+        data.setdefault('debug', False)
+        assets = data.get('assets', {})
+        assets.setdefault('prefix', '/assets')
+        assets_src = assets.get('src', {})
+        assets_src.setdefault('css', 'assets/src/css')
+        assets_src.setdefault('js', 'assets/src/js')
+        assets['src'] = assets_src
+        assets_build = assets.get('build', {})
+        assets_build.setdefault('css', 'assets/build/css')
+        assets_build.setdefault('js', 'assets/build/js')
+        assets['build'] = assets_build
+        data['assets'] = assets
+
         if data.get('debug', False):
             logging.getLogger().setLevel(logging.DEBUG)
 

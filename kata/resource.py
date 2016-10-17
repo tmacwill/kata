@@ -61,6 +61,9 @@ class Resource(object):
 
         data = ''
         if result:
+            for header in result.headers:
+                response.set_header(header[0], header[1])
+
             response.status = result.status_code
             data = self._serialize(result.data)
         else:
@@ -71,14 +74,10 @@ class Resource(object):
         else:
             response.data = data
 
-        if result:
-            for header in result.headers:
-                response.set_header(header[0], header[1])
-
     def _serialize(self, data):
         if self._format == 'json':
             return kata.db.serialize(data, 'json')
-        elif self._format == 'msgpack':
+        if self._format == 'msgpack':
             return kata.db.serialize(data, 'msgpack')
 
         return data
