@@ -58,6 +58,8 @@ class Resource(object):
             response.content_type = 'application/x-msgpack'
         elif self._format == 'html':
             response.content_type = 'text/html'
+        elif self._format == 'text':
+            response.content_type = 'text/plain'
 
         data = ''
         if result:

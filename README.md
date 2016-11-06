@@ -27,11 +27,19 @@ Now, let's create the root `__init__.py` file. In `myproject/myproject/__init__.
     import kata
     import os
 
-    config = os.environ.get('CONFIG', os.path.dirname(os.path.realpath(__file__)) + '/../config/dev.yaml')
-    kata.initialize(config)
+    os.environ.setdefault('KATA_CONFIG', 'config/myproject.yaml')
+    kata.initialize(
+        "%s/../%s" % (os.path.dirname(os.path.realpath(__file__)), os.environ.get('KATA_CONFIG'))
+    )
     app = kata.config.app()
 
-Here, we're initializing our kata application, using the config file we just created. This `__init__.py` also lets us specify the path to a config file via an environment variable, and defaults to a file called `config/dev.yaml`. It also exposes a module-level `app` variable, which you'll need to run WSGI servers like gunicorn.
+Here, we're initializing our kata application, using the config file we just created. This `__init__.py` also lets us specify the path to a config file via an environment variable, and defaults to a file called `config/myproject.yaml`. It also exposes a module-level `app` variable, which you'll need to run WSGI servers like gunicorn.
+
+For now, create a new file called `config/myproject.yaml`, and paste the below:
+
+    debug: true
+
+As you might guess, this enables debug mode. We'll add more to this configuration YAML file as we go.
 
 ## Resources
 
@@ -64,11 +72,13 @@ In order for these routes to be registered when your app starts, change `myproje
     import kata
     import os
 
-    config = os.environ.get('CONFIG', os.path.dirname(os.path.realpath(__file__)) + '/../config/dev.yaml')
-    kata.initialize(config)
-    app = kata.config.app()
-
     import myproject.routes
+
+    os.environ.setdefault('KATA_CONFIG', 'config/myproject.yaml')
+    kata.initialize(
+        "%s/../%s" % (os.path.dirname(os.path.realpath(__file__)), os.environ.get('KATA_CONFIG'))
+    )
+    app = kata.config.app()
 
 You can split up these routes into as many different files and directories as you want, just be sure to import them all in your `__init__.py` file (or via modules imported by that file), or they won't be registered.
 
@@ -78,9 +88,26 @@ By default, resources will return JSON. You can change the encoding via the `for
 
 ## Running the Server
 
-kata works with any WSGI server. We'll use gunicorn as an example. After you've installed gunicorn, you can run the below from the root `myproject` directory to start your app server:
+kata works with any WSGI server. It has built-in support for gunicorn. To use it, add the below to configuration YAML:
 
-    gunicorn --bind 127.0.0.1:8000 myproject:app
+    gunicorn:
+        config: config/myproject.conf.py
+        module: myproject
+
+Then, you can create a script to run the gunicorn server. For example, in your top-level project directory, you might want to create a directory called `bin`, then add a file called `server` that looks like the this:
+
+    #!/usr/bin/env python
+
+    import kata.server
+    import os
+    import sys
+
+    here = os.path.dirname(os.path.realpath(__file__)) + '/../'
+    os.chdir(here)
+    sys.path.append(here)
+
+    import myproject
+    kata.server.run()
 
 In a production environment, we recommend putting gunicorn behind nginx. Here's an example nginx config file for `myproject`, running at `myproject.com`:
 

@@ -4,6 +4,7 @@ import natsort
 import subprocess
 import re
 import yaml
+import kata
 import kata.config
 
 def _alter_table_string(table, column_name, data_type, length, default, nullable, primary_key=False, create=False):
@@ -245,5 +246,5 @@ def reset(config_file, schema_directory, execute=False, quiet=False):
         drop_entire_database_and_lose_all_data(config['user'], config['name'])
         create_database(config['user'], config['name'])
 
-    kata.config.initialize(config_file)
+    kata.initialize(config_file)
     apply(schema_directory, execute, quiet)

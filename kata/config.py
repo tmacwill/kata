@@ -14,7 +14,7 @@ def app():
 
     return _app
 
-def initialize(config_file, bare=False):
+def initialize(config_file):
     global data
 
     with open(config_file, 'r') as f:
@@ -23,18 +23,6 @@ def initialize(config_file, bare=False):
             return
 
         data.setdefault('debug', False)
-        assets = data.get('assets', {})
-        assets.setdefault('prefix', '/assets')
-        assets_src = assets.get('src', {})
-        assets_src.setdefault('css', 'assets/src/css')
-        assets_src.setdefault('js', 'assets/src/js')
-        assets['src'] = assets_src
-        assets_build = assets.get('build', {})
-        assets_build.setdefault('css', 'assets/build/css')
-        assets_build.setdefault('js', 'assets/build/js')
-        assets['build'] = assets_build
-        data['assets'] = assets
-
         if data.get('debug', False):
             logging.getLogger().setLevel(logging.DEBUG)
 
@@ -53,3 +41,19 @@ def initialize(config_file, bare=False):
         if 'errors' in data:
             import kata.errors
             kata.errors.initialize(data['errors'])
+
+        if 'assets' in data:
+            assets = data.get('assets', {})
+            assets.setdefault('prefix', '/assets')
+            assets_src = assets.get('src', {})
+            assets_src.setdefault('css', 'assets/src/css')
+            assets_src.setdefault('js', 'assets/src/js')
+            assets['src'] = assets_src
+            assets_build = assets.get('build', {})
+            assets_build.setdefault('css', 'assets/build/css')
+            assets_build.setdefault('js', 'assets/build/js')
+            assets['build'] = assets_build
+            data['assets'] = assets
+
+            import kata.assets
+            kata.assets.initialize(data['assets'])
